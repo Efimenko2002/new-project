@@ -34,14 +34,25 @@ const locationInp = document.getElementById('location-input');
 //////////////////// 5. Утилиты ////////////////////
 const saveNotes = () => localStorage.setItem('notes', JSON.stringify(notes));
 
-function autoGrow(el, extraLine = false) {
-  const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
-  const currentHeight = el.clientHeight;
-  el.style.height = 'auto';
-  let newHeight = el.scrollHeight + (extraLine ? lineHeight : 0);
-  if (newHeight < currentHeight) newHeight = currentHeight;
-  el.style.height = newHeight + 'px';
+// Авто-рост textarea: +1 строка снизу при первом показе,
+// а дальше увеличивается ТОЛЬКО когда тексту стало тесно.
+function autoGrow(el, first = false) {
+  const oneLine = parseFloat(getComputedStyle(el).lineHeight) || 20;
+
+  if (first) {                         // первичная инициализация
+    el.style.height    = 'auto';
+    el.style.minHeight = el.scrollHeight + oneLine + 'px'; // текст +1 строка
+    el.style.height    = el.scrollHeight + 'px';
+    return;
+  }
+
+  // при наборе: растём, только если контент вышел за низ
+  if (el.scrollHeight > el.offsetHeight) {
+    el.style.height    = el.scrollHeight + 'px';
+    el.style.minHeight = el.scrollHeight + oneLine + 'px';
+  }
 }
+
 
 function updateCreateMarker(latlng) {
   if (createMarker) map.removeLayer(createMarker);
