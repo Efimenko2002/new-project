@@ -34,10 +34,13 @@ const locationInp = document.getElementById('location-input');
 //////////////////// 5. Утилиты ////////////////////
 const saveNotes = () => localStorage.setItem('notes', JSON.stringify(notes));
 
-function autoGrow(el) {
-  el.style.height    = 'auto';
-  el.style.minHeight = el.scrollHeight + 20 + 'px'; // +1 строка
-  el.style.height    = el.scrollHeight + 'px';
+function autoGrow(el, extraLine = false) {
+  const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+  const currentHeight = el.clientHeight;
+  el.style.height = 'auto';
+  let newHeight = el.scrollHeight + (extraLine ? lineHeight : 0);
+  if (newHeight < currentHeight) newHeight = currentHeight;
+  el.style.height = newHeight + 'px';
 }
 
 function updateCreateMarker(latlng) {
@@ -81,7 +84,7 @@ function renderNotes() {
       ta.style.width = '100%';
       ta.style.resize = 'vertical';
       ta.oninput = () => { autoGrow(ta); };
-      autoGrow(ta);
+      autoGrow(ta, true);
 
       const coordInput = document.createElement('input');
       coordInput.type  = 'text';
@@ -162,7 +165,7 @@ function renderCreateForm() {
 
   const ta = document.createElement('textarea');
   ta.rows = 6; ta.style.width='100%'; ta.style.resize='vertical';
-  ta.value = createText; autoGrow(ta);
+  ta.value = createText; autoGrow(ta, true);
   ta.oninput = () => { createText = ta.value; autoGrow(ta); };
 
   const coordInput = document.createElement('input');
