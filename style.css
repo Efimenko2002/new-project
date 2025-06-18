@@ -68,3 +68,11 @@ textarea{
   max-width:100%;
   resize:vertical;
 }
+/* Ограничиваем размер пузыря; лишний текст скроллится */
+.leaflet-popup-content {
+  max-width: 250px;     /* ширина */
+  max-height: 120px;    /* высота */
+  overflow: auto;
+  white-space: pre-wrap;  /* переносы и \n сохраняем */
+  word-break: break-word; /* длинные слова ломаем */
+}
