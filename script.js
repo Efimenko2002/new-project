@@ -1,301 +1,242 @@
-/*  NoteMap PWA – script.js  (v5.2, full)  */
-/*  --------------------------------------  */
-/*  Требует только Leaflet CDN и HTML-разметку:             */
-/*  - div#map, sidebar с  #note-list, #note-input, buttons  */
-/*  - input#location-input, button#locate-btn, button#save-btn */
+/*  NoteMap PWA – script.js  (v6.0, финальный)  */
+/*  ------------------------------------------- */
 
-//////////////////// 1. Карта и тайлы ////////////////////
-const map = L.map('map').setView([55.75, 37.61], 10);        // Москва by default
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '© OpenStreetMap'
-}).addTo(map);
+/*  Зависимости в index.html:
+      – Leaflet CSS/JS   – <link>, <script> CDN
+      – div#map          – карта
+      – sidebar:  #note-list, #note-input, #save-btn,
+                         #location-input, #locate-btn, #filterToggle
+*/
 
-//////////////////// 2. Системные маркеры ////////////////////
-let userMarker   = null;   // «Вы здесь»
-let createMarker = null;   // маркер при создании
-let editMarker   = null;   // маркер при редактировании
+/* ───── 1. Карта ───── */
+const map = L.map('map').setView([55.75, 37.61], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
 
-//////////////////// 3. Состояния ////////////////////
-const notes  = JSON.parse(localStorage.getItem('notes') || '[]');
-let createMode            = false;
+/* ───── 2. Маркеры (служебные) ───── */
+let userMarker   = null;
+let createMarker = null;
+let editMarker   = null;
+
+/* ───── 3. Данные и состояния ───── */
+const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+
+let createMode            = false;   // сейчас создаём новую?
 let createText            = '';
 let createCoords          = null;
-let currentlyEditingIndex = null;
+
+let editingIndex          = null;    // индекс редактируемой заметки
 let editingCoords         = null;
 
-//////////////////// 4. DOM ////////////////////
+/* ───── 4. DOM ───── */
 const list        = document.getElementById('note-list');
-const input       = document.getElementById('note-input');
+const noteInput   = document.getElementById('note-input');
 const saveBtn     = document.getElementById('save-btn');
 const locateBtn   = document.getElementById('locate-btn');
 const locationInp = document.getElementById('location-input');
+const filterToggle= document.getElementById('filterToggle');
 
-//////////////////// 5. Утилиты ////////////////////
+/* ───── 5. Вспомогательные ───── */
 const saveNotes = () => localStorage.setItem('notes', JSON.stringify(notes));
 
-// Авто-рост textarea: +1 строка снизу при первом показе,
-// а дальше увеличивается ТОЛЬКО когда тексту стало тесно.
 function autoGrow(el, first = false) {
-  const oneLine = parseFloat(getComputedStyle(el).lineHeight) || 20;
-
-  if (first) {                         // первичная инициализация
+  const lh = parseFloat(getComputedStyle(el).lineHeight) || 20;
+  if (first) {
     el.style.height    = 'auto';
-    el.style.minHeight = el.scrollHeight + oneLine + 'px'; // текст +1 строка
+    el.style.minHeight = el.scrollHeight + lh + 'px';  // +1 строка
     el.style.height    = el.scrollHeight + 'px';
     return;
   }
-
-  // при наборе: растём, только если контент вышел за низ
   if (el.scrollHeight > el.offsetHeight) {
     el.style.height    = el.scrollHeight + 'px';
-    el.style.minHeight = el.scrollHeight + oneLine + 'px';
+    el.style.minHeight = el.scrollHeight + lh + 'px';
   }
 }
 
-
 function updateCreateMarker(latlng) {
   if (createMarker) map.removeLayer(createMarker);
-  createMarker = L.marker(latlng, { draggable: false })
-                  .addTo(map)
-                  .bindPopup('Новая заметка')
-                  .openPopup();
+  createMarker = L.marker(latlng).addTo(map).bindPopup('Новая').openPopup();
 }
-
 function updateEditMarker(latlng) {
   if (editMarker) map.removeLayer(editMarker);
-  editMarker = L.marker(latlng, { draggable: false })
-                .addTo(map)
-                .bindPopup('Редактирование')
-                .openPopup();
+  editMarker = L.marker(latlng).addTo(map).bindPopup('Редакт.').openPopup();
 }
 
 function redrawMarkers() {
   map.eachLayer(l => {
-    if (l instanceof L.Marker && ![userMarker, createMarker, editMarker].includes(l)) {
-      map.removeLayer(l);
-    }
+    if (l instanceof L.Marker &&
+        ![userMarker, createMarker, editMarker].includes(l)) { map.removeLayer(l); }
   });
   notes.forEach(n => L.marker(n.latlng).addTo(map).bindPopup(n.text));
 }
 
-//////////////////// 6. Рисуем список ////////////////////
+/* ───── 6. Фильтр по видимой области ───── */
+function applyBoundsFilter() {
+  if (!filterToggle.checked) {                     // выключен → показываем всё
+    Array.from(list.children).forEach(li => li.style.display = '');
+    return;
+  }
+  const bounds = map.getBounds();
+  Array.from(list.children).forEach((li, idx) => {
+    const n = notes[idx];
+    if (!n) return;                                // первая строка может быть форма
+    li.style.display = bounds.contains(n.latlng) ? '' : 'none';
+  });
+}
+map.on('moveend', applyBoundsFilter);
+
+/* ───── 7. Рендер списка ───── */
 function renderNotes() {
   list.innerHTML = '';
   redrawMarkers();
 
-  notes.forEach((note, i) => {
+  notes.forEach((n, i) => {
     const li = document.createElement('li');
 
-    function applyBoundsFilter() {
-  if (!filterToggle.checked) {               // фильтр выключен — показать всё
-    Array.from(list.children).forEach(li => li.style.display = '');
-    return;
-  }
-  const b = map.getBounds();
-  Array.from(list.children).forEach((li, idx) => {
-    const n = notes[idx];
-    if (!n) return;                          // когда на первом месте форма create / edit
-    li.style.display = b.contains(n.latlng) ? '' : 'none';
-  });
-  applyBoundsFilter();
-}
-
-    // ----- редактор -----
-    if (currentlyEditingIndex === i) {
+    /* ----- режим редактирования ----- */
+    if (editingIndex === i) {
       const ta = document.createElement('textarea');
-      ta.value = note.text;
-      ta.rows  = 6;
-      ta.style.width = '100%';
-      ta.style.resize = 'vertical';
-      ta.oninput = () => { autoGrow(ta); };
-      autoGrow(ta, true);
+      ta.value = n.text; ta.style.width = '100%'; ta.style.resize = 'vertical';
+      autoGrow(ta, true); ta.oninput = () => autoGrow(ta);
 
-      const coordInput = document.createElement('input');
-      coordInput.type  = 'text';
-      coordInput.style.width = '100%';
-      coordInput.value = `${(editingCoords || note.latlng).lat.toFixed(5)},${(editingCoords || note.latlng).lng.toFixed(5)}`;
-      coordInput.oninput = () => {
-        const [lat,lng] = coordInput.value.split(',').map(Number);
+      const coord = document.createElement('input');
+      coord.type = 'text'; coord.style.width = '100%';
+      coord.value = `${(editingCoords || n.latlng).lat.toFixed(5)},${(editingCoords || n.latlng).lng.toFixed(5)}`;
+      coord.oninput = () => {
+        const [lat, lng] = coord.value.split(',').map(Number);
         if (!isNaN(lat) && !isNaN(lng)) {
-          editingCoords = { lat, lng };
-          updateEditMarker(editingCoords);
+          editingCoords = { lat, lng }; updateEditMarker(editingCoords);
         }
       };
-      updateEditMarker(editingCoords || note.latlng);
+      updateEditMarker(editingCoords || n.latlng);
 
-      const tip = document.createElement('div');
-      tip.textContent = 'Кликните по карте или введите lat,lng';
-      tip.style.fontSize = '0.8em'; tip.style.color = '#666';
-
-      const save = document.createElement('button');
-      save.textContent = '💾 Сохранить';
-      save.onclick = () => {
-        note.text = ta.value;
-        if (editingCoords) note.latlng = editingCoords;
-        currentlyEditingIndex = null;
-        editingCoords = null;
+      const ok   = document.createElement('button'); ok.textContent = '💾 Сохранить';
+      ok.onclick = () => {
+        n.text = ta.value;
+        if (editingCoords) n.latlng = editingCoords;
+        editingIndex = editingCoords = null;
         if (editMarker) { map.removeLayer(editMarker); editMarker = null; }
         saveNotes(); renderNotes();
       };
-
-      const cancel = document.createElement('button');
-      cancel.textContent = '❌ Отмена';
+      const cancel = document.createElement('button'); cancel.textContent = '❌ Отмена';
       cancel.onclick = () => {
-        currentlyEditingIndex = null;
-        editingCoords = null;
+        editingIndex = editingCoords = null;
         if (editMarker) { map.removeLayer(editMarker); editMarker = null; }
         renderNotes();
       };
 
-      li.append(ta, coordInput, save, cancel, tip);
+      li.append(ta, coord, ok, cancel);
       list.appendChild(li);
       return;
     }
 
-    // ----- просмотр -----
-    const text = document.createElement('div');
-    text.className = 'note-text';                    // стиль в CSS
-    text.textContent = note.text;
+    /* ----- просмотр ----- */
+    const txt = document.createElement('div');
+    txt.className = 'note-text';
+    txt.textContent = n.text;
 
-    const coord = document.createElement('div');
-    coord.textContent = `Координаты: ${note.latlng.lat.toFixed(5)}, ${note.latlng.lng.toFixed(5)}`;
-    coord.style.fontSize = '0.9em'; coord.style.color = '#777';
+    const c   = document.createElement('div');
+    c.style.fontSize = '12px';
+    c.textContent = `${n.latlng.lat.toFixed(5)}, ${n.latlng.lng.toFixed(5)}`;
 
-    const edit = document.createElement('button');
-    edit.textContent = '✏️ Редактировать';
-    edit.onclick = () => {
-      currentlyEditingIndex = i;
-      editingCoords = null;
-      renderNotes();
-    };
+    const edit = document.createElement('button'); edit.textContent = '✏️';
+    edit.onclick = () => { editingIndex = i; renderNotes(); };
 
-    const del = document.createElement('button');
-    del.textContent = '🗑️'; del.title = 'Удалить';
-    del.onclick = () => {
-      if (confirm('Удалить заметку?')) {
-        notes.splice(i,1); saveNotes(); renderNotes();
-      }
-    };
+    const del  = document.createElement('button'); del.textContent = '🗑️';
+    del.onclick = () => { if (confirm('Удалить?')) { notes.splice(i,1); saveNotes(); renderNotes(); } };
 
-    li.append(text, coord, edit, del);
+    li.append(txt, c, edit, del);
     list.appendChild(li);
   });
+
+  applyBoundsFilter();        // ← фильтр после полного рендера
 }
 
-//////////////////// 7. Форма создания ////////////////////
+/* ───── 8. Рендер формы создания ───── */
 function renderCreateForm() {
   list.innerHTML = '';
   const li = document.createElement('li');
 
   const ta = document.createElement('textarea');
-  ta.rows = 6; ta.style.width='100%'; ta.style.resize='vertical';
-  ta.value = createText; autoGrow(ta, true);
-  ta.oninput = () => { createText = ta.value; autoGrow(ta); };
+  ta.value = createText; ta.style.width='100%'; ta.style.resize='vertical';
+  autoGrow(ta, true); ta.oninput = () => { createText = ta.value; autoGrow(ta); };
 
-  const coordInput = document.createElement('input');
-  coordInput.type='text'; coordInput.style.width='100%';
-  if (createCoords) coordInput.value = `${createCoords.lat.toFixed(5)},${createCoords.lng.toFixed(5)}`;
-  coordInput.oninput = () => {
-    const [lat,lng] = coordInput.value.split(',').map(Number);
-    if (!isNaN(lat)&&!isNaN(lng)) {
-      createCoords={lat,lng}; updateCreateMarker(createCoords);
-    }
+  const coord = document.createElement('input');
+  coord.type='text'; coord.style.width='100%';
+  if (createCoords) coord.value = `${createCoords.lat.toFixed(5)},${createCoords.lng.toFixed(5)}`;
+  coord.oninput = () => {
+    const [lat,lng] = coord.value.split(',').map(Number);
+    if (!isNaN(lat)&&!isNaN(lng)) { createCoords={lat,lng}; updateCreateMarker(createCoords); }
   };
   if (createCoords) updateCreateMarker(createCoords);
 
-  const tip=document.createElement('div');
-  tip.textContent='Кликните по карте или введите lat,lng';
-  tip.style.fontSize='0.8em'; tip.style.color='#666';
-
-  const add=document.createElement('button');
-  add.textContent='💾 Добавить';
-  add.onclick=()=>{
-    if(!createCoords){alert('Укажите координаты');return;}
-    notes.push({text:createText,latlng:createCoords});
+  const add = document.createElement('button'); add.textContent = '💾 Добавить';
+  add.onclick = () => {
+    if (!createCoords) return alert('Сначала укажите координаты.');
+    notes.push({ text:createText, latlng:createCoords });
     saveNotes();
-    if(createMarker){map.removeLayer(createMarker);createMarker=null;}
-    createMode=false;createText='';createCoords=null;
+    if (createMarker) { map.removeLayer(createMarker); createMarker=null; }
+    createMode = false; createText = ''; createCoords = null;
     renderNotes();
-    applyBoundsFilter();
   };
-
-  const cancel=document.createElement('button');
-  cancel.textContent='❌ Отмена';
+  const cancel=document.createElement('button'); cancel.textContent='❌ Отмена';
   cancel.onclick=()=>{
     if(createMarker){map.removeLayer(createMarker);createMarker=null;}
-    createMode=false;createText='';createCoords=null; renderNotes();
+    createMode=createText=createCoords=false; renderNotes();
   };
 
-  li.append(ta,coordInput,add,cancel,tip);
+  li.append(ta,coord,add,cancel);
   list.appendChild(li);
+  applyBoundsFilter();
 }
 
-//////////////////// 8. Обработчики карты ////////////////////
-map.on('click', e => {
-  if(createMode){ createCoords = e.latlng; updateCreateMarker(e.latlng); renderCreateForm(); return; }
-  if(currentlyEditingIndex!==null){ editingCoords=e.latlng; updateEditMarker(e.latlng); renderNotes(); return; }
+/* ───── 9. Клик по карте ───── */
+map.on('click', e=>{
+  if (createMode) { createCoords = e.latlng; updateCreateMarker(e.latlng); renderCreateForm(); return; }
+  if (editingIndex!==null) { editingCoords = e.latlng; updateEditMarker(e.latlng); renderNotes(); return; }
 
-  const txt=input.value.trim();
-  if(!txt) return;
-  createMode=true; createText=txt; createCoords=e.latlng; input.value='';
-  updateCreateMarker(e.latlng); renderCreateForm();
+  const txt = noteInput.value.trim();
+  if (!txt) return;
+  createMode = true; createText = txt; noteInput.value = '';
+  createCoords = e.latlng; updateCreateMarker(e.latlng); renderCreateForm();
 });
 
-//////////////////// 9. Кнопки ////////////////////
+/* ───── 10. Кнопки ───── */
 saveBtn.onclick = () => {
-  const txt=input.value.trim(); if(!txt) return;
-  createMode=true; createText=txt; createCoords=null; input.value='';
-  renderCreateForm();
+  const txt = noteInput.value.trim(); if (!txt) return;
+  createMode = true; createText = txt; noteInput.value = ''; renderCreateForm();
 };
 
 locateBtn.onclick = () => {
-  if(!navigator.geolocation){alert('Геолокация не поддерживается');return;}
+  if (!navigator.geolocation) return alert('Геолокация не поддерживается');
   navigator.geolocation.getCurrentPosition(pos=>{
-    const latlng=[pos.coords.latitude,pos.coords.longitude];
-    map.setView(latlng,15);
+    const ll=[pos.coords.latitude,pos.coords.longitude];
+    map.setView(ll,15);
     if(userMarker) map.removeLayer(userMarker);
-    userMarker=L.marker(latlng,{icon:L.icon({
+    userMarker=L.marker(ll, {icon:L.icon({
       iconUrl:'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
       iconSize:[32,32]
     })}).addTo(map).bindPopup('Вы здесь').openPopup();
-  },()=>alert('Не удалось получить геопозицию'));
+  },()=>alert('Не удалось получить позицию'));
 };
 
-//////////////////// 10. Поиск адреса/координат ////////////////////
-locationInp.addEventListener('keydown', e=>{
-  if(e.key!=='Enter')return;
-  e.preventDefault();
+/* ───── 11. Поиск адреса / координат ───── */
+locationInp.addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return; e.preventDefault();
   const q=locationInp.value.trim(); if(!q) return;
-
   const parts=q.split(',').map(Number);
-  if(parts.length===2 && !parts.some(isNaN)){
-    jumpTo({lat:parts[0],lng:parts[1]}); return;
-  }
+  if(parts.length===2&&!parts.some(isNaN)){ jumpTo({lat:parts[0],lng:parts[1]}); return; }
   fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
-    .then(r=>r.json())
-    .then(res=>{
-      if(!res.length){alert('Ничего не найдено');return;}
-      jumpTo({lat:+res[0].lat,lng:+res[0].lon});
-    })
-    .catch(()=>alert('Ошибка геокодера'));
+    .then(r=>r.json()).then(j=>{
+      if(!j.length) return alert('Не найдено');
+      jumpTo({lat:+j[0].lat,lng:+j[0].lon});
+    }).catch(()=>alert('Ошибка геокодера'));
 });
-
 function jumpTo(latlng){
   map.setView(latlng,15);
   if(createMode){ createCoords=latlng; updateCreateMarker(latlng); renderCreateForm(); }
-  else if(currentlyEditingIndex!==null){ editingCoords=latlng; updateEditMarker(latlng); renderNotes(); }
+  else if(editingIndex!==null){ editingCoords=latlng; updateEditMarker(latlng); renderNotes(); }
 }
 
-//////////////////// 11. Фильтрация списка по границам ////////////////////
-map.on('moveend', applyBoundsFilter, ()=>{
-  const b=map.getBounds();
-  Array.from(list.children).forEach((li,idx)=>{
-    const n=notes[idx]; if(!n) return;
-    li.style.display = b.contains(n.latlng) ? '' : 'none';
-  });
-});
-
-
-//////////////////// 12. Первая отрисовка ////////////////////
+/* ───── 12. Первый рендер ───── */
 renderNotes();
