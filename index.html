@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NoteMap PWA</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#317EFB" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('SW зарегистрирован', reg))
+        .catch(err => console.error('SW ошибка', err));
+    }
+  </script>
+</head>
+<body>
+  <h1>🗺️ NoteMap</h1>
+  <div id="map"></div>
+  <div id="note-panel">
+    <textarea id="note-input" placeholder="Введите заметку..."></textarea>
+    <button id="save-btn">💾 Сохранить заметку</button>
+    <ul id="note-list"></ul>
+  </div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
