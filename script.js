@@ -5,6 +5,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let userMarker = null;
+let currentlyEditingIndex = null;
 
 const notes = JSON.parse(localStorage.getItem('notes')) || [];
 const list = document.getElementById('note-list');
@@ -16,36 +17,54 @@ const locationInput = document.getElementById('location-input');
 function renderNotes() {
   list.innerHTML = '';
   notes.forEach((note, index) => {
-    if (map.getBounds().contains(note.latlng)) {
-      const li = document.createElement('li');
-      const textInput = document.createElement('input');
-      textInput.type = 'text';
-      textInput.value = note.text;
-      textInput.onchange = () => {
-        notes[index].text = textInput.value;
+    const li = document.createElement('li');
+
+    if (currentlyEditingIndex === index) {
+      const textarea = document.createElement('textarea');
+      textarea.value = note.text;
+      textarea.style.width = '100%';
+      textarea.style.height = '80px';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = '💾 Сохранить';
+      saveBtn.onclick = () => {
+        note.text = textarea.value;
+        currentlyEditingIndex = null;
         localStorage.setItem('notes', JSON.stringify(notes));
         renderNotes();
       };
-      const coordInput = document.createElement('input');
-      coordInput.type = 'text';
-      coordInput.placeholder = 'lat,lng';
-      coordInput.value = `${note.latlng.lat.toFixed(5)},${note.latlng.lng.toFixed(5)}`;
-      coordInput.onchange = () => {
-        const [lat, lng] = coordInput.value.split(',').map(Number);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          note.latlng = { lat, lng };
-          localStorage.setItem('notes', JSON.stringify(notes));
-          renderNotes();
-        }
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = '❌ Отмена';
+      cancelBtn.onclick = () => {
+        currentlyEditingIndex = null;
+        renderNotes();
       };
+
+      li.appendChild(textarea);
+      li.appendChild(saveBtn);
+      li.appendChild(cancelBtn);
+    } else {
+      const textSpan = document.createElement('span');
+      textSpan.textContent = note.text;
+
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️';
+      editBtn.onclick = () => {
+        currentlyEditingIndex = index;
+        renderNotes();
+      };
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = '🗑️';
       deleteBtn.onclick = () => deleteNote(index);
-      li.appendChild(textInput);
-      li.appendChild(coordInput);
+
+      li.appendChild(textSpan);
+      li.appendChild(editBtn);
       li.appendChild(deleteBtn);
-      list.appendChild(li);
     }
+
+    list.appendChild(li);
   });
 }
 
@@ -65,6 +84,11 @@ function deleteNote(index) {
 }
 
 map.on('click', e => {
+  if (currentlyEditingIndex !== null) {
+    notes[currentlyEditingIndex].latlng = e.latlng;
+    return;
+  }
+
   const text = input.value.trim();
   if (!text) return;
   addMarkerAndNote(text, e.latlng);
@@ -122,3 +146,4 @@ locationInput.addEventListener('keydown', e => {
 renderNotes();
 notes.forEach(note => L.marker(note.latlng).addTo(map).bindPopup(note.text));
 map.on('moveend', renderNotes);
+
