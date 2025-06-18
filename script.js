@@ -127,6 +127,7 @@ function renderNotes() {
 
       li.append(ta, coord, ok, cancel);
       list.appendChild(li);
+      autoGrow(ta, true);
       return;
     }
 
@@ -187,6 +188,7 @@ function renderCreateForm() {
 
   li.append(ta,coord,add,cancel);
   list.appendChild(li);
+  autoGrow(ta, true);
   applyBoundsFilter();
 }
 
