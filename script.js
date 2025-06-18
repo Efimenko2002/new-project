@@ -87,6 +87,20 @@ function renderNotes() {
   notes.forEach((note, i) => {
     const li = document.createElement('li');
 
+    function applyBoundsFilter() {
+  if (!filterToggle.checked) {               // фильтр выключен — показать всё
+    Array.from(list.children).forEach(li => li.style.display = '');
+    return;
+  }
+  const b = map.getBounds();
+  Array.from(list.children).forEach((li, idx) => {
+    const n = notes[idx];
+    if (!n) return;                          // когда на первом месте форма create / edit
+    li.style.display = b.contains(n.latlng) ? '' : 'none';
+  });
+  applyBoundsFilter();
+}
+
     // ----- редактор -----
     if (currentlyEditingIndex === i) {
       const ta = document.createElement('textarea');
@@ -203,6 +217,7 @@ function renderCreateForm() {
     if(createMarker){map.removeLayer(createMarker);createMarker=null;}
     createMode=false;createText='';createCoords=null;
     renderNotes();
+    applyBoundsFilter();
   };
 
   const cancel=document.createElement('button');
@@ -273,13 +288,14 @@ function jumpTo(latlng){
 }
 
 //////////////////// 11. Фильтрация списка по границам ////////////////////
-map.on('moveend', ()=>{
+map.on('moveend', applyBoundsFilter, ()=>{
   const b=map.getBounds();
   Array.from(list.children).forEach((li,idx)=>{
     const n=notes[idx]; if(!n) return;
     li.style.display = b.contains(n.latlng) ? '' : 'none';
   });
 });
+
 
 //////////////////// 12. Первая отрисовка ////////////////////
 renderNotes();
