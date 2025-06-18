@@ -2,6 +2,8 @@
 
 This project is a simple progressive web app that lets you place notes on a map. It uses Leaflet for map rendering and stores notes in `localStorage` so they persist across page reloads.
 
+https://efimenko2002.github.io/new-project/
+
 ## Running a Local Server
 
 Open a terminal in the project directory and run:
