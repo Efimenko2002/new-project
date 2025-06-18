@@ -8,6 +8,8 @@ const notes = JSON.parse(localStorage.getItem('notes')) || [];
 const list = document.getElementById('note-list');
 const input = document.getElementById('note-input');
 const button = document.getElementById('save-btn');
+const message = document.getElementById('message');
+let pendingText = null;
 
 function renderNotes() {
   list.innerHTML = '';
@@ -27,16 +29,31 @@ function addMarkerAndNote(text, latlng) {
   renderNotes();
 }
 
+function updateButtonState() {
+  button.disabled = input.value.trim() === '' || pendingText !== null;
+}
+
+input.addEventListener('input', updateButtonState);
+
 map.on('click', e => {
-  const text = input.value.trim();
-  if (!text) return;
-  addMarkerAndNote(text, e.latlng);
-  input.value = '';
+  if (pendingText) {
+    addMarkerAndNote(pendingText, e.latlng);
+    pendingText = null;
+    message.textContent = '';
+    updateButtonState();
+  }
 });
 
 button.addEventListener('click', () => {
-  alert('Чтобы сохранить заметку, кликните по карте!');
+  const text = input.value.trim();
+  if (!text) return;
+  pendingText = text;
+  input.value = '';
+  message.textContent = 'Теперь выберите место на карте';
+  updateButtonState();
 });
+
+updateButtonState();
 
 renderNotes();
 notes.forEach(note => L.marker(note.latlng).addTo(map).bindPopup(note.text));
