@@ -1,4 +1,9 @@
 const CACHE_NAME = 'notemap-cache-v1';
+const CDN_ASSETS = [
+  'https://unpkg.com/leaflet/dist/leaflet.js',
+  'https://unpkg.com/leaflet/dist/leaflet.css'
+];
+
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
@@ -7,14 +12,30 @@ const URLS_TO_CACHE = [
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  'https://unpkg.com/leaflet/dist/leaflet.js',
-  'https://unpkg.com/leaflet/dist/leaflet.css'
+  ...CDN_ASSETS,
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(URLS_TO_CACHE))
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    try {
+      await cache.addAll(URLS_TO_CACHE);
+    } catch (err) {
+      console.warn('Cache addAll failed:', err);
+      // Fallback: try to cache core assets only
+      await cache.addAll(URLS_TO_CACHE.filter(u => !u.startsWith('https://')));
+    }
+
+    // Cache CDN files only if fetch succeeds
+    await Promise.all(CDN_ASSETS.map(async url => {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) await cache.put(url, resp);
+      } catch (e) {
+        console.warn('Skipping CDN asset', url, e);
+      }
+    }));
+  })());
 });
 
 self.addEventListener('fetch', event => {
