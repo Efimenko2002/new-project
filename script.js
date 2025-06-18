@@ -34,15 +34,18 @@ const locationInp = document.getElementById('location-input');
 //////////////////// 5. Утилиты ////////////////////
 const saveNotes = () => localStorage.setItem('notes', JSON.stringify(notes));
 
+// Подгоняем высоту текстового поля под содержимое
+// extraLine=true — добавляем одну строку запаса при первой отрисовке
 function autoGrow(el, extraLine = false) {
-  const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
-  const currentHeight = el.clientHeight;
-  el.style.height = 'auto';
-  let newHeight = el.scrollHeight + (extraLine ? lineHeight : 0);
-  if (newHeight < currentHeight) newHeight = currentHeight;
+  const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20; // высота строки
+  const currentHeight = el.clientHeight;                               // текущая высота
+  el.style.height = 'auto';                                            // сброс перед расчётом
+  let newHeight = el.scrollHeight + (extraLine ? lineHeight : 0);      // нужная высота
+  if (newHeight < currentHeight) newHeight = currentHeight;            // не уменьшаем при удалении
   el.style.height = newHeight + 'px';
 }
 
+// Показывает маркер для новой заметки на карте
 function updateCreateMarker(latlng) {
   if (createMarker) map.removeLayer(createMarker);
   createMarker = L.marker(latlng, { draggable: false })
@@ -51,6 +54,7 @@ function updateCreateMarker(latlng) {
                   .openPopup();
 }
 
+// Отображает маркер при редактировании существующей заметки
 function updateEditMarker(latlng) {
   if (editMarker) map.removeLayer(editMarker);
   editMarker = L.marker(latlng, { draggable: false })
@@ -59,6 +63,7 @@ function updateEditMarker(latlng) {
                 .openPopup();
 }
 
+// Перерисовываем все маркеры заметок, кроме системных
 function redrawMarkers() {
   map.eachLayer(l => {
     if (l instanceof L.Marker && ![userMarker, createMarker, editMarker].includes(l)) {
@@ -83,8 +88,8 @@ function renderNotes() {
       ta.rows  = 6;
       ta.style.width = '100%';
       ta.style.resize = 'vertical';
-      ta.oninput = () => { autoGrow(ta); };
-      autoGrow(ta, true);
+      ta.oninput = () => { autoGrow(ta); };                 // растягиваем при вводе
+      autoGrow(ta, true);                                   // изначально добавляем одну строку
 
       const coordInput = document.createElement('input');
       coordInput.type  = 'text';
@@ -165,8 +170,8 @@ function renderCreateForm() {
 
   const ta = document.createElement('textarea');
   ta.rows = 6; ta.style.width='100%'; ta.style.resize='vertical';
-  ta.value = createText; autoGrow(ta, true);
-  ta.oninput = () => { createText = ta.value; autoGrow(ta); };
+  ta.value = createText; autoGrow(ta, true);  // стартуем с запасом в одну строку
+  ta.oninput = () => { createText = ta.value; autoGrow(ta); }; // растягиваем по мере ввода
 
   const coordInput = document.createElement('input');
   coordInput.type='text'; coordInput.style.width='100%';
