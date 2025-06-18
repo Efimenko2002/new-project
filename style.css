@@ -1,0 +1,58 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+h1 {
+  margin: 0;
+  padding: 0.5em;
+  background: #317EFB;
+  color: white;
+  text-align: center;
+}
+
+#map {
+  flex: 1;
+  height: 50%;
+}
+
+#note-panel {
+  padding: 1em;
+  background: #f9f9f9;
+  height: 50%;
+  overflow: auto;
+}
+
+#note-input {
+  width: 100%;
+  height: 60px;
+  margin-bottom: 0.5em;
+  padding: 0.5em;
+  font-size: 1em;
+}
+
+#save-btn {
+  width: 100%;
+  padding: 0.5em;
+  font-size: 1em;
+  background: #317EFB;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+#note-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 1em;
+}
+
+#note-list li {
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+  background: #e0e0e0;
+  border-radius: 4px;
+}
