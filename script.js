@@ -1,4 +1,4 @@
-// NoteMap PWA Script (v2 - UX + геолокация и нормальный рендер длинных заметок)
+// NoteMap PWA Script (v3 - улучшенный UX: маркеры, координаты, textarea)
 let map = L.map('map').setView([55.75, 37.61], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -6,6 +6,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let userMarker = null;
+let createMarker = null;
+let editMarker = null;
 let currentlyEditingIndex = null;
 let editingCoords = null;
 let createMode = false;
@@ -24,7 +26,6 @@ function renderNotes() {
   notes.forEach((note, index) => {
     const li = document.createElement('li');
     if (currentlyEditingIndex === index) {
-      // --- Редактирование ---
       const textarea = document.createElement('textarea');
       textarea.value = note.text;
       textarea.style.width = '100%';
@@ -37,20 +38,23 @@ function renderNotes() {
       };
       textarea.oninput();
 
-      // координаты (input)
       const coordInput = document.createElement('input');
       coordInput.type = 'text';
-      coordInput.value = `${(editingCoords || note.latlng).lat.toFixed(5)},${(editingCoords || note.latlng).lng.toFixed(5)}`;
-      coordInput.style.width = '60%';
       coordInput.placeholder = 'lat,lng';
-      coordInput.onchange = () => {
+      coordInput.value = `${(editingCoords || note.latlng).lat.toFixed(5)},${(editingCoords || note.latlng).lng.toFixed(5)}`;
+      coordInput.style.width = '100%';
+      coordInput.oninput = () => {
         const [lat, lng] = coordInput.value.split(',').map(Number);
         if (!isNaN(lat) && !isNaN(lng)) {
           editingCoords = { lat, lng };
+          updateEditMarker(editingCoords);
         }
       };
+
+      updateEditMarker(editingCoords || note.latlng);
+
       const tip = document.createElement('div');
-      tip.textContent = 'Для смены координат: кликните на карте или измените вручную';
+      tip.textContent = 'Кликните по карте или измените координаты вручную';
       tip.style.fontSize = '0.8em';
       tip.style.color = '#888';
 
@@ -61,23 +65,32 @@ function renderNotes() {
         if (editingCoords) note.latlng = editingCoords;
         currentlyEditingIndex = null;
         editingCoords = null;
+        if (editMarker) {
+          map.removeLayer(editMarker);
+          editMarker = null;
+        }
         localStorage.setItem('notes', JSON.stringify(notes));
         renderNotes();
       };
+
       const cancelBtn = document.createElement('button');
       cancelBtn.textContent = '❌ Отмена';
       cancelBtn.onclick = () => {
         currentlyEditingIndex = null;
         editingCoords = null;
+        if (editMarker) {
+          map.removeLayer(editMarker);
+          editMarker = null;
+        }
         renderNotes();
       };
+
       li.appendChild(textarea);
       li.appendChild(coordInput);
       li.appendChild(saveBtn);
       li.appendChild(cancelBtn);
       li.appendChild(tip);
     } else {
-      // --- Просмотр ---
       const textBlock = document.createElement('div');
       textBlock.textContent = note.text;
       textBlock.style.whiteSpace = 'pre-wrap';
@@ -88,11 +101,12 @@ function renderNotes() {
       textBlock.style.borderRadius = '4px';
       textBlock.style.padding = '0.5em';
       textBlock.style.maxHeight = 'none';
-      // координаты
+
       const coordShow = document.createElement('div');
       coordShow.textContent = `Координаты: ${note.latlng.lat.toFixed(5)}, ${note.latlng.lng.toFixed(5)}`;
       coordShow.style.fontSize = '0.9em';
       coordShow.style.color = '#777';
+
       const editBtn = document.createElement('button');
       editBtn.textContent = '✏️ Редактировать';
       editBtn.onclick = () => {
@@ -100,9 +114,11 @@ function renderNotes() {
         editingCoords = null;
         renderNotes();
       };
+
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = '🗑️';
       deleteBtn.onclick = () => deleteNote(index);
+
       li.appendChild(textBlock);
       li.appendChild(coordShow);
       li.appendChild(editBtn);
@@ -110,6 +126,16 @@ function renderNotes() {
     }
     list.appendChild(li);
   });
+}
+
+function updateCreateMarker(latlng) {
+  if (createMarker) map.removeLayer(createMarker);
+  createMarker = L.marker(latlng).addTo(map).bindPopup('Новая заметка').openPopup();
+}
+
+function updateEditMarker(latlng) {
+  if (editMarker) map.removeLayer(editMarker);
+  editMarker = L.marker(latlng, { draggable: false }).addTo(map).bindPopup('Редактирование').openPopup();
 }
 
 function addMarkerAndNote(text, latlng) {
@@ -128,24 +154,25 @@ function deleteNote(index) {
 }
 
 map.on('click', e => {
-  // Создание заметки через клик (если активен режим создания)
   if (createMode) {
     createCoords = e.latlng;
+    updateCreateMarker(e.latlng);
     renderCreateForm();
     return;
   }
-  // Изменение координат в режиме редактирования
   if (currentlyEditingIndex !== null) {
     editingCoords = e.latlng;
+    updateEditMarker(e.latlng);
     renderNotes();
     return;
   }
-  // Обычный режим — сохранение новой заметки
   const text = input.value.trim();
   if (!text) return;
   createMode = true;
   createText = text;
   input.value = '';
+  createCoords = e.latlng;
+  updateCreateMarker(e.latlng);
   renderCreateForm();
 });
 
@@ -166,26 +193,30 @@ function renderCreateForm() {
   textarea.style.width = '100%';
   textarea.rows = 6;
   textarea.style.resize = 'vertical';
+  textarea.style.marginBottom = '0.5em';
   textarea.oninput = () => {
     textarea.style.height = 'auto';
     textarea.style.height = textarea.scrollHeight + 'px';
   };
   textarea.oninput();
 
-  // координаты
   const coordInput = document.createElement('input');
   coordInput.type = 'text';
   coordInput.placeholder = 'lat,lng';
   coordInput.value = createCoords ? `${createCoords.lat.toFixed(5)},${createCoords.lng.toFixed(5)}` : '';
-  coordInput.style.width = '60%';
-  coordInput.onchange = () => {
+  coordInput.style.width = '100%';
+  coordInput.oninput = () => {
     const [lat, lng] = coordInput.value.split(',').map(Number);
     if (!isNaN(lat) && !isNaN(lng)) {
       createCoords = { lat, lng };
+      updateCreateMarker(createCoords);
     }
   };
+
+  if (createCoords) updateCreateMarker(createCoords);
+
   const tip = document.createElement('div');
-  tip.textContent = 'Для выбора координат: кликните по карте или введите вручную';
+  tip.textContent = 'Кликните по карте или измените координаты вручную';
   tip.style.fontSize = '0.8em';
   tip.style.color = '#888';
 
@@ -193,23 +224,33 @@ function renderCreateForm() {
   saveBtn.textContent = '💾 Добавить';
   saveBtn.onclick = () => {
     if (!createCoords) {
-      alert('Выберите координаты на карте или введите их.');
+      alert('Укажите координаты кликом на карту или вручную.');
       return;
     }
     addMarkerAndNote(textarea.value, createCoords);
     createMode = false;
     createText = '';
     createCoords = null;
+    if (createMarker) {
+      map.removeLayer(createMarker);
+      createMarker = null;
+    }
     renderNotes();
   };
+
   const cancelBtn = document.createElement('button');
   cancelBtn.textContent = '❌ Отмена';
   cancelBtn.onclick = () => {
     createMode = false;
     createText = '';
     createCoords = null;
+    if (createMarker) {
+      map.removeLayer(createMarker);
+      createMarker = null;
+    }
     renderNotes();
   };
+
   li.appendChild(textarea);
   li.appendChild(coordInput);
   li.appendChild(saveBtn);
@@ -263,11 +304,11 @@ locationInput.addEventListener('keydown', e => {
 });
 
 function redrawMarkers() {
-  // Очищаем все старые маркеры
   map.eachLayer(layer => {
-    if (layer instanceof L.Marker && layer !== userMarker) map.removeLayer(layer);
+    if (layer instanceof L.Marker && layer !== userMarker && layer !== createMarker && layer !== editMarker) {
+      map.removeLayer(layer);
+    }
   });
-  // Заново добавляем все маркеры заметок
   notes.forEach(note => L.marker(note.latlng).addTo(map).bindPopup(note.text));
 }
 
