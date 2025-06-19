@@ -1,7 +1,6 @@
 ## NoteMap PWA
 
 Этот проект представляет собой простое прогрессивное веб-приложение, позволяющее размещать заметки на карте. Он использует Leaflet для рендеринга карты и сохраняет заметки в `localStorage`, чтобы они сохранялись при перезагрузке страницы.
-![{D434461A-54BE-4D44-BB36-F3BB195F01E7}](https://github.com/user-attachments/assets/c44771f0-9ff5-4eea-b7ea-5fd3d293ecc6)
 
 ---
 
@@ -38,3 +37,6 @@ python3 -m http.server
 
 ## Запуск с использованием Github pages
 https://efimenko2002.github.io/new-project/
+
+---
+![{D434461A-54BE-4D44-BB36-F3BB195F01E7}](https://github.com/user-attachments/assets/c44771f0-9ff5-4eea-b7ea-5fd3d293ecc6)
