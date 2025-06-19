@@ -20,6 +20,10 @@ let editMarker   = null;
 
 /* ───── 3. Данные и состояния ───── */
 const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+notes.forEach(n => {
+  if (!n.created) n.created = Date.now();
+});
+saveNotes();   // одноразовая синхронизация
 
 let createMode            = false;   // сейчас создаём новую?
 let createText            = '';
@@ -118,6 +122,8 @@ function renderNotes() {
       ok.onclick = () => {
         n.text = ta.value;
         if (editingCoords) n.latlng = editingCoords;
+        /* обновляем метку времени */
+        n.created = Date.now();
         editingIndex = editingCoords = null;
         if (editMarker) { map.removeLayer(editMarker); editMarker = null; }
         saveNotes(); renderNotes();
