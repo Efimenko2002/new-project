@@ -1,28 +1,25 @@
 # NoteMap PWA
 
-This project is a simple progressive web app that lets you place notes on a map. It uses Leaflet for map rendering and stores notes in `localStorage` so they persist across page reloads.
+Этот проект представляет собой простое прогрессивное веб-приложение, позволяющее размещать заметки на карте. Он использует Leaflet для рендеринга карты и сохраняет заметки в `localStorage`, чтобы они сохранялись при перезагрузке страницы.
 
-https://efimenko2002.github.io/new-project/
+## ✨ Возможности
 
-## Running a Local Server
+- 📍 Привязка заметок к геопозиции на карте
+- 📝 Создание, редактирование, удаление заметок
+- 🗂️ Фильтрация заметок по текущему экрану карты
+- 💾 Хранение данных локально в браузере (без сервера)
+- 📤 Экспорт и 📥 импорт заметок (JSON)
+- 📱 Установка на главный экран (PWA)
 
-Open a terminal in the project directory and run:
+## Запуск локального сервера
+
+Откройте терминал в каталоге проекта и выполните:
 
 ```bash
 python3 -m http.server
 ```
 
-Then open `http://localhost:8000` in your browser to load the app.
+Затем откройте `http://localhost:8000` в браузере, чтобы загрузить приложение.
 
-## Adding Notes
-
-1. Type a note in the text box under the map.
-2. Click **Save note**.
-3. A message will appear asking you to choose a location. Click on the map where you want to place the note.
-4. A marker will be added at that spot and the note text will be saved.
-
-Notes near the current map view are listed under the text box. All markers are saved locally so they remain when you refresh the page.
-
-## Example Screenshot
-
-Below is a screenshot showing a map with two sample notes.
+## Запуск с использованием Github pages
+https://efimenko2002.github.io/new-project/
