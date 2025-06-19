@@ -1,4 +1,4 @@
-/*  NoteMap PWA – script.js  (v6.0, финальный)  */
+/*  NoteMap PWA – script.js  (v7.0, финальный)  */
 /*  ------------------------------------------- */
 
 /*  Зависимости в index.html:
@@ -35,6 +35,10 @@ const saveBtn     = document.getElementById('save-btn');
 const locateBtn   = document.getElementById('locate-btn');
 const locationInp = document.getElementById('location-input');
 const filterToggle= document.getElementById('filterToggle');
+const exportBtn  = document.getElementById('export-btn');
+const importBtn  = document.getElementById('import-btn');
+const importFile = document.getElementById('import-file');
+
 
 /* ───── 5. Вспомогательные ───── */
 const saveNotes = () => localStorage.setItem('notes', JSON.stringify(notes));
@@ -97,7 +101,7 @@ function renderNotes() {
     if (editingIndex === i) {
       const ta = document.createElement('textarea');
       ta.value = n.text; ta.style.width = '100%'; ta.style.resize = 'vertical';
-      autoGrow(ta, true); ta.oninput = () => autoGrow(ta);
+      //autoGrow(ta, true); ta.oninput = () => autoGrow(ta);
 
       const coord = document.createElement('input');
       coord.type = 'text'; coord.style.width = '100%';
@@ -140,13 +144,21 @@ function renderNotes() {
     c.style.fontSize = '12px';
     c.textContent = `${n.latlng.lat.toFixed(5)}, ${n.latlng.lng.toFixed(5)}`;
 
+    const date = document.createElement('div');
+    date.style.fontSize = '11px';
+    date.style.color    = '#888';
+    date.textContent    = n.created       // если поле есть
+      ? new Date(n.created).toLocaleString()
+      : '';                               // если старые записи – просто пусто
+
+
     const edit = document.createElement('button'); edit.textContent = '✏️';
     edit.onclick = () => { editingIndex = i; renderNotes(); };
 
     const del  = document.createElement('button'); del.textContent = '🗑️';
     del.onclick = () => { if (confirm('Удалить?')) { notes.splice(i,1); saveNotes(); renderNotes(); } };
 
-    li.append(txt, c, edit, del);
+    li.append(txt, c, date, edit, del);
     list.appendChild(li);
   });
 
@@ -160,7 +172,7 @@ function renderCreateForm() {
 
   const ta = document.createElement('textarea');
   ta.value = createText; ta.style.width='100%'; ta.style.resize='vertical';
-  autoGrow(ta, true); ta.oninput = () => { createText = ta.value; autoGrow(ta); };
+  //autoGrow(ta, true); ta.oninput = () => { createText = ta.value; autoGrow(ta); };
 
   const coord = document.createElement('input');
   coord.type='text'; coord.style.width='100%';
@@ -174,7 +186,7 @@ function renderCreateForm() {
   const add = document.createElement('button'); add.textContent = '💾 Добавить';
   add.onclick = () => {
     if (!createCoords) return alert('Сначала укажите координаты.');
-    notes.push({ text:createText, latlng:createCoords });
+    notes.push({ text:createText, latlng:createCoords, created: Date.now() });
     saveNotes();
     if (createMarker) { map.removeLayer(createMarker); createMarker=null; }
     createMode = false; createText = ''; createCoords = null;
@@ -220,6 +232,49 @@ locateBtn.onclick = () => {
       iconSize:[32,32]
     })}).addTo(map).bindPopup('Вы здесь').openPopup();
   },()=>alert('Не удалось получить позицию'));
+};
+/* --- экспорт JSON --- */
+exportBtn.onclick = () => {
+  const blob = new Blob([JSON.stringify(notes, null, 2)],
+                        { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'notes.json';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+/* --- импорт JSON --- */
+importBtn.onclick = () => importFile.click();
+
+importFile.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const arr = JSON.parse(evt.target.result);
+      if (!Array.isArray(arr)) throw 'not array';
+
+      arr.forEach(o => {
+        if (!o.text || !o.latlng) return;
+        const dup = notes.find(n =>
+          n.text === o.text &&
+          n.latlng.lat === o.latlng.lat &&
+          n.latlng.lng === o.latlng.lng
+        );
+        if (!dup) notes.push(o);
+      });
+
+      saveNotes();
+      renderNotes();
+      alert('Импорт завершён');
+    } catch (err) {
+      alert('Файл не похож на notes.json');
+    }
+  };
+  reader.readAsText(file);
 };
 
 /* ───── 11. Поиск адреса / координат ───── */
