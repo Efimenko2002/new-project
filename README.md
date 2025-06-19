@@ -37,6 +37,10 @@ python3 -m http.server
 
 ## Запуск с использованием Github pages
 https://efimenko2002.github.io/new-project/
+---
+## 🧠 Автор
+Разработал: Ефименко Илья гр. 932426
+С помощью ChatGPT 4o и o3 роли 🐱 технического консультанта.
 
 ---
 ![{D434461A-54BE-4D44-BB36-F3BB195F01E7}](https://github.com/user-attachments/assets/c44771f0-9ff5-4eea-b7ea-5fd3d293ecc6)
